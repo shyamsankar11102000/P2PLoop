@@ -3,4 +3,51 @@
 {% block content %}
 <h1 class="text-center">Welcome to the P2P Lending Admin Dashboard</h1>
 <p class="text-center">Use the navigation bar to manage customers, loans, and more.</p>
+
+<!-- Search Form -->
+<h3 class="mt-4">Search Customers</h3>
+<form method="POST" action="{{ url_for('index') }}">
+    <div class="form-row">
+        <div class="col">
+            <input type="text" class="form-control" name="customer_id" placeholder="Customer ID" value="{{ request.form.get('customer_id') }}">
+        </div>
+        <div class="col">
+            <input type="text" class="form-control" name="customer_name" placeholder="Customer Name" value="{{ request.form.get('customer_name') }}">
+        </div>
+        <div class="col">
+            <input type="number" class="form-control" name="credit_score" placeholder="Credit Score" value="{{ request.form.get('credit_score') }}">
+        </div>
+        <div class="col">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+    </div>
+</form>
+
+<!-- Results Table -->
+{% if customers_summary %}
+    <h3 class="mt-4">Search Results</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Customer ID</th>
+                <th>Customer Name</th>
+                <th>Credit Score</th>
+                <th>Total Invested</th>
+                <th>Total Borrowed</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in customers_summary %}
+            <tr>
+                <td>{{ row[0] }}</td>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+                <td>{{ row[3] }}</td>
+                <td>{{ row[4] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
 {% endblock %}
