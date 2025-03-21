@@ -24,6 +24,43 @@ def get_db_connection():
 def index():
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    query1 = """
+    SELECT TO_CHAR(startdate, 'YYYY-MM') AS Month, sum(loanamount) AS LoanedAmount
+    FROM Loans
+    GROUP BY TO_CHAR(startdate, 'YYYY-MM')
+    ORDER BY Month
+    LIMIT 12;
+    """
+    cursor.execute(query1)
+    trend_data = cursor.fetchall()
+
+    # Process the data for the graph
+    months_cc = [row[0] for row in trend_data]
+    total_loan_amount = [float(row[1]) for row in trend_data]
+
+    query2 = """
+    SELECT 
+    CASE 
+        WHEN CreditScore BETWEEN 300 AND 579 THEN 'Poor'
+        WHEN CreditScore BETWEEN 580 AND 669 THEN 'Fair'
+        WHEN CreditScore BETWEEN 670 AND 739 THEN 'Good'
+        WHEN CreditScore BETWEEN 740 AND 799 THEN 'Very Good'
+        ELSE 'Excellent'
+    END AS ScoreRange,
+    COUNT(*) AS CustomerCount
+    FROM CreditScores
+    GROUP BY ScoreRange
+    ORDER BY ScoreRange;
+    """
+    cursor.execute(query2)
+    trend_data = cursor.fetchall()
+
+    # Process the data for the graph
+    score_range = [row[0] for row in trend_data]
+    customer_count = [float(row[1]) for row in trend_data]
+
+
     if request.method == 'POST':
         # Get the search criteria from the form
         customer_id = request.form.get('customer_id')
@@ -59,9 +96,10 @@ def index():
         cursor = conn.cursor()
         cursor.execute(query, ('%' + customer_name + '%',))  # Pass the parameter for customer_name safely
         customers_summary = cursor.fetchall()
-
-        return render_template('index.html', customers_summary=customers_summary)
-    return render_template('index.html', customers_summary=None)
+        conn.close()
+        return render_template('index.html', customers_summary=customers_summary, months_cc=months_cc, total_loan_amount=total_loan_amount, score_range=score_range, customer_count=customer_count)
+    conn.close()
+    return render_template('index.html', customers_summary=None, months_cc=months_cc, total_loan_amount=total_loan_amount, score_range=score_range, customer_count=customer_count)
 
 
 

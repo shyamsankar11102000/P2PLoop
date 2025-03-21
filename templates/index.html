@@ -4,6 +4,69 @@
 <h1 class="text-center">Welcome to the P2P Lending Admin Dashboard</h1>
 <p class="text-center">Use the navigation bar to manage customers, loans, and more.</p>
 
+<h3 class="mt-4">Customer Trends</h3>
+<div style="display: flex; justify-content: space-between;">
+
+    <!-- First Chart: Loan Trend -->
+    <div id="totalloantrend" style="width: 45%;"></div> <!-- Set width to 45% -->
+    
+    <!-- Second Chart: Credit Score Trend -->
+    <div id="creditscoretrend" style="width: 45%;"></div> <!-- Set width to 45% -->
+    
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const monthsCC = {{ months_cc | tojson | safe }};
+        const totalLoanAmount = {{ total_loan_amount | tojson | safe }};
+        Highcharts.chart('totalloantrend', {
+            chart: {
+                type: 'line'
+            },
+            title: {
+                text: 'Total Amount Loaned Out Over Time'
+            },
+            xAxis: {
+                categories: monthsCC  // Renders as JS array, e.g., ["2023-01", "2023-02"]
+            },
+            yAxis: {
+                title: {
+                    text: 'Total Loan Amount'
+                }
+            },
+            series: [{
+                name: 'Total Loan Amount',
+                data: totalLoanAmount  // Renders as JS array, e.g., [1000.0, 1500.0]
+            }]
+        });
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const scoreRange = {{ score_range | tojson | safe }};
+        const customerCount = {{ customer_count | tojson | safe }};
+        Highcharts.chart('creditscoretrend', {
+            chart: {
+                type: 'bar'
+            },
+            title: {
+                text: 'Distribution of customers based on credit score'
+            },
+            xAxis: {
+                categories: scoreRange  // Renders as JS array, e.g., ["2023-01", "2023-02"]
+            },
+            yAxis: {
+                title: {
+                    text: 'Total Customers'
+                }
+            },
+            series: [{
+                name: 'Total Customers',
+                data: customerCount  // Renders as JS array, e.g., [1000.0, 1500.0]
+            }]
+        });
+    });
+</script>
+
 <!-- Search Form -->
 <h3 class="mt-4">Search Customers</h3>
 <form method="POST" action="{{ url_for('index') }}">
@@ -49,5 +112,4 @@
         </tbody>
     </table>
 {% endif %}
-
 {% endblock %}
