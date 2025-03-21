@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Enter Loan ID to View Details and Make Payment</h2>
+
+<form method="POST">
+    <div class="form-group">
+        <label for="loan_id">Loan ID</label>
+        <input type="text" class="form-control" id="loan_id" name="loan_id" required>
+    </div>
+    <button type="submit" class="btn btn-primary">View Loan Details</button>
+</form>
+{% endblock %}

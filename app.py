@@ -133,14 +133,6 @@ def view_customers():
     conn.close()
     return render_template('customers.html', customers=customers)
 
-@app.route('/loans')
-def view_loans():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Loans")
-    loans = cursor.fetchall()
-    conn.close()
-    return render_template('loans.html', loans=loans)
 
 @app.route('/add_customer', methods=['GET', 'POST'])
 def add_customer():
@@ -161,6 +153,72 @@ def add_customer():
         flash("Customer added successfully!", "success")
         return redirect(url_for('view_customers'))
     return render_template('add_customer.html')
+
+
+
+@app.route('/loan_details', methods=['GET', 'POST'])
+def loan_details():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        # Step 1: User submits the loan_id
+        loan_id = request.form['loan_id']
+
+        # Step 2: Query the loan details from the database
+        cursor.execute("""
+            SELECT LoanID, LoanAmount, InterestRate, StartDate, EndDate, LoanStatus
+            FROM Loans WHERE LoanID = %s
+        """, (loan_id,))
+        loan = cursor.fetchone()
+
+        if loan is None:
+            flash('No loan found with this ID.', 'danger')
+            return redirect(url_for('loan_details'))  # Redirect back if no loan found
+
+        # Step 3: Handle payment submission
+        if 'payment_amount' in request.form:
+            payment_amount = request.form['payment_amount']
+            payment_date = request.form['payment_date']
+
+            # Insert the payment into LoanRepayments table
+            cursor.execute("""
+                INSERT INTO LoanRepayments (LoanID, RepaymentAmount, RepaymentDate)
+                VALUES (%s, %s, %s)
+            """, (loan_id, payment_amount, payment_date))
+            conn.commit()
+            cursor.execute("""
+    SELECT LoanID, LoanAmount, InterestRate, StartDate, EndDate, LoanStatus
+    FROM Loans WHERE LoanID = %s
+""", (loan_id,))
+            loan = cursor.fetchone()
+            loan_amount = loan[1]
+            new_remaining_balance = loan_amount - int(payment_amount)
+
+            if new_remaining_balance <= 0:
+                    new_status = 'Completed'
+                    new_remaining_balance = 0  # Loan is fully paid off
+            else:
+                    new_status = loan[5]
+
+                # Update RemainingBalance and LoanStatus in the Loans table
+            cursor.execute("""
+                    UPDATE Loans
+                    SET LoanAmount = %s, LoanStatus = %s
+                    WHERE LoanID = %s
+                """, (new_remaining_balance, new_status, loan_id))
+            conn.commit()
+
+            # Flash success message
+            flash(f'Payment of {payment_amount} for Loan ID {loan_id} added successfully.', 'success')
+            return redirect(url_for('loan_details'))  # Reload loan details after payment
+
+        return render_template('loan_details.html', loan=loan)
+
+    # If it's a GET request, show the form to input loan_id
+    return render_template('loan_details_input.html')
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
