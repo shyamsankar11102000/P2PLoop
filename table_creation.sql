@@ -43,5 +43,16 @@ CREATE TABLE CreditScores (
     LastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID) ON DELETE CASCADE
 );
+CREATE TABLE LoanInvestments (
+    InvestmentID SERIAL PRIMARY KEY,
+    LoanID INT,
+    LenderID INT,
+    InvestmentAmount DECIMAL(15, 2),
+    InvestmentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (LoanID) REFERENCES Loans(LoanID) ON DELETE CASCADE,
+    FOREIGN KEY (LenderID) REFERENCES Customers(CustomerID) ON DELETE CASCADE
+);
+
+
 
 

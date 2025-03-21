@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 import psycopg2
-import json
-from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Required for flashing messages
@@ -17,115 +15,133 @@ DATABASE_CONFIG = {
 
 # Helper function to get database connection
 def get_db_connection():
-    conn = psycopg2.connect(**DATABASE_CONFIG)
-    return conn
+    return psycopg2.connect(**DATABASE_CONFIG)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # Query 1: Loan Trends
     query1 = """
-    SELECT TO_CHAR(startdate, 'YYYY-MM') AS Month, sum(loanamount) AS LoanedAmount
+    SELECT TO_CHAR(startdate, 'YYYY-MM') AS Month, SUM(loanamount) AS LoanedAmount
     FROM Loans
     GROUP BY TO_CHAR(startdate, 'YYYY-MM')
     ORDER BY Month
     LIMIT 12;
     """
     cursor.execute(query1)
-    trend_data = cursor.fetchall()
+    loan_trend_data = cursor.fetchall()
+    months_cc = [row[0] for row in loan_trend_data]
+    total_loan_amount = [float(row[1]) for row in loan_trend_data]
 
-    # Process the data for the graph
-    months_cc = [row[0] for row in trend_data]
-    total_loan_amount = [float(row[1]) for row in trend_data]
-
+    # Query 2: Credit Score Distribution
     query2 = """
     SELECT 
-    CASE 
-        WHEN CreditScore BETWEEN 300 AND 579 THEN 'Poor'
-        WHEN CreditScore BETWEEN 580 AND 669 THEN 'Fair'
-        WHEN CreditScore BETWEEN 670 AND 739 THEN 'Good'
-        WHEN CreditScore BETWEEN 740 AND 799 THEN 'Very Good'
-        ELSE 'Excellent'
-    END AS ScoreRange,
-    COUNT(*) AS CustomerCount
+        CASE 
+            WHEN CreditScore BETWEEN 300 AND 579 THEN 'Poor'
+            WHEN CreditScore BETWEEN 580 AND 669 THEN 'Fair'
+            WHEN CreditScore BETWEEN 670 AND 739 THEN 'Good'
+            WHEN CreditScore BETWEEN 740 AND 799 THEN 'Very Good'
+            ELSE 'Excellent'
+        END AS ScoreRange,
+        COUNT(*) AS CustomerCount
     FROM CreditScores
     GROUP BY ScoreRange
     ORDER BY ScoreRange;
     """
     cursor.execute(query2)
-    trend_data = cursor.fetchall()
+    credit_trend_data = cursor.fetchall()
+    score_range = [row[0] for row in credit_trend_data]
+    customer_count = [int(row[1]) for row in credit_trend_data]  # Use int since it’s a count
 
-    # Process the data for the graph
-    score_range = [row[0] for row in trend_data]
-    customer_count = [float(row[1]) for row in trend_data]
+    query3 = """
+    SELECT 
+        c.CustomerID, 
+        c.FirstName || ' ' || c.LastName AS CustomerName, 
+        SUM(l.LoanAmount) AS TotalBorrowed
+    FROM Customers c
+    JOIN Loans l ON c.CustomerID = l.BorrowerID
+    GROUP BY c.CustomerID, c.FirstName, c.LastName
+    ORDER BY TotalBorrowed DESC
+    LIMIT 5;
+    """
+    cursor.execute(query3)
+    top_customers = cursor.fetchall()
 
+    query4 = """
+    SELECT 
+    c.CustomerID, 
+    c.FirstName || ' ' || c.LastName AS CustomerName, 
+    SUM(li.InvestmentAmount) AS TotalInvested
+    FROM Customers c
+    JOIN LoanInvestments li ON c.CustomerID = li.LenderID
+    GROUP BY c.CustomerID, c.FirstName, c.LastName
+    ORDER BY TotalInvested DESC
+    LIMIT 5;
+    """
+    cursor.execute(query4)
+    top_lenders = cursor.fetchall()
+
+    query = """
+        SELECT
+            c.CustomerID,
+            c.FirstName || ' ' || c.LastName AS CustomerName,
+            ROUND(AVG(cs.creditscore)) AS creditscores,
+            COALESCE(SUM(l.loanamount), 0) AS TotalBorrowed,
+            COALESCE(SUM(t.investmentamount), 0) AS TotalInvested
+        FROM Customers c
+        LEFT JOIN CreditScores cs ON c.CustomerID = cs.CustomerID
+        LEFT JOIN Loans l ON l.BorrowerID = c.CustomerID
+        LEFT JOIN LoanInvestments t ON t.LenderID = c.CustomerID
+        WHERE 1=1
+        """
+    params = []
 
     if request.method == 'POST':
-        # Get the search criteria from the form
+        # Get form inputs
         customer_id = request.form.get('customer_id')
         customer_name = request.form.get('customer_name')
         credit_score = request.form.get('credit_score')
 
-        # Build dynamic query based on form inputs
-        query = """
-        SELECT
-            c.CustomerID,
-            c.FirstName || ' ' || c.LastName AS CustomerName,
-			round(avg(creditscore)) as creditscores,
-            COALESCE(SUM(l.loanamount), 0) AS TotalBorrowed,
-            COALESCE(SUM(t.investmentamount), 0) AS TotalInvested
-        FROM
-            Customers c
-        LEFT JOIN CreditScores cs ON c.CustomerID = cs.CustomerID
-        LEFT JOIN Loans l ON l.BorrowerID = c.CustomerID
-        LEFT JOIN loaninvestments t ON t.LenderID = c.CustomerID
-        where 1=1
-        """
-
-        # Append conditions based on user inputs
         if customer_id:
-            query += f" AND c.CustomerID = {customer_id}"
+            query += " AND c.CustomerID = %s"
+            params.append(customer_id)
         if customer_name:
-            query += f" AND (FirstName || ' ' || LastName) LIKE %s"
+            query += " AND (c.FirstName || ' ' || c.LastName) LIKE %s"
+            params.append(f"%{customer_name}%")
         if credit_score:
-            query += f" AND CreditScore >= {credit_score}"
-        query+=f" GROUP BY c.CustomerID, c.FirstName, c.LastName ORDER BY c.CustomerID"
+            query += " AND cs.creditscore >= %s"
+            params.append(credit_score)
 
-        # Execute the query with the parameters
-        cursor = conn.cursor()
-        cursor.execute(query, ('%' + customer_name + '%',))  # Pass the parameter for customer_name safely
-        customers_summary = cursor.fetchall()
-        conn.close()
-        return render_template('index.html', customers_summary=customers_summary, months_cc=months_cc, total_loan_amount=total_loan_amount, score_range=score_range, customer_count=customer_count)
+    query += " GROUP BY c.CustomerID, c.FirstName, c.LastName ORDER BY c.CustomerID"
+
+    cursor.execute(query, params)
+    customers_summary = cursor.fetchall()
     conn.close()
-    return render_template('index.html', customers_summary=None, months_cc=months_cc, total_loan_amount=total_loan_amount, score_range=score_range, customer_count=customer_count)
+    return render_template('index.html', customers_summary=customers_summary, 
+                              months_cc=months_cc, total_loan_amount=total_loan_amount, 
+                              score_range=score_range, customer_count=customer_count, top_customers=top_customers, top_lenders=top_lenders)
 
-
-
-# Route to view all customers
+# Other routes remain unchanged
 @app.route('/customers')
 def view_customers():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Customers")
     customers = cursor.fetchall()
-    cursor.close()
     conn.close()
     return render_template('customers.html', customers=customers)
 
-# Route to view all loans
 @app.route('/loans')
 def view_loans():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Loans")
     loans = cursor.fetchall()
-    cursor.close()
     conn.close()
     return render_template('loans.html', loans=loans)
 
-# Route to add a new customer
 @app.route('/add_customer', methods=['GET', 'POST'])
 def add_customer():
     if request.method == 'POST':
@@ -141,14 +157,10 @@ def add_customer():
             VALUES (%s, %s, %s, %s)
         """, (first_name, last_name, email, phone_number))
         conn.commit()
-        cursor.close()
         conn.close()
         flash("Customer added successfully!", "success")
         return redirect(url_for('view_customers'))
-
     return render_template('add_customer.html')
 
-
-# Main entry point
 if __name__ == '__main__':
     app.run(debug=True)

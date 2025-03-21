@@ -1,84 +1,102 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="text-center">Welcome to the P2P Lending Admin Dashboard</h1>
-<p class="text-center">Use the navigation bar to manage customers, loans, and more.</p>
+<h1 class="text-center">P2PLoop: A peer-to-peer lending service</h1>
+<p class="text-center">Admin Dasboard</p>
 
 <h3 class="mt-4">Customer Trends</h3>
 <div style="display: flex; justify-content: space-between;">
-
-    <!-- First Chart: Loan Trend -->
-    <div id="totalloantrend" style="width: 45%;"></div> <!-- Set width to 45% -->
-    
-    <!-- Second Chart: Credit Score Trend -->
-    <div id="creditscoretrend" style="width: 45%;"></div> <!-- Set width to 45% -->
-    
+    <div id="totalloantrend" style="width: 45%; height: 400px;"></div>
+    <div id="creditscoretrend" style="width: 45%; height: 400px;"></div>
 </div>
+
+<script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const monthsCC = {{ months_cc | tojson | safe }};
         const totalLoanAmount = {{ total_loan_amount | tojson | safe }};
         Highcharts.chart('totalloantrend', {
-            chart: {
-                type: 'line'
-            },
-            title: {
-                text: 'Total Amount Loaned Out Over Time'
-            },
-            xAxis: {
-                categories: monthsCC  // Renders as JS array, e.g., ["2023-01", "2023-02"]
-            },
-            yAxis: {
-                title: {
-                    text: 'Total Loan Amount'
-                }
-            },
-            series: [{
-                name: 'Total Loan Amount',
-                data: totalLoanAmount  // Renders as JS array, e.g., [1000.0, 1500.0]
-            }]
+            chart: { type: 'line' },
+            title: { text: 'Total Amount Loaned Out Over Time' },
+            xAxis: { categories: monthsCC },
+            yAxis: { title: { text: 'Total Loan Amount' } },
+            series: [{ name: 'Total Loan Amount', data: totalLoanAmount }]
         });
-    });
-</script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
+
         const scoreRange = {{ score_range | tojson | safe }};
         const customerCount = {{ customer_count | tojson | safe }};
         Highcharts.chart('creditscoretrend', {
-            chart: {
-                type: 'bar'
-            },
-            title: {
-                text: 'Distribution of customers based on credit score'
-            },
-            xAxis: {
-                categories: scoreRange  // Renders as JS array, e.g., ["2023-01", "2023-02"]
-            },
-            yAxis: {
-                title: {
-                    text: 'Total Customers'
-                }
-            },
-            series: [{
-                name: 'Total Customers',
-                data: customerCount  // Renders as JS array, e.g., [1000.0, 1500.0]
-            }]
+            chart: { type: 'bar' },
+            title: { text: 'Distribution of Customers by Credit Score' },
+            xAxis: { categories: scoreRange },
+            yAxis: { title: { text: 'Number of Customers' } },
+            series: [{ name: 'Customers', data: customerCount }]
         });
     });
 </script>
 
-<!-- Search Form -->
+<div style="display: flex; justify-content: space-between;">
+
+    <!-- Top Borrowing Customers Table -->
+    <div style="width: 45%;">
+        <h3 class="mt-4">Top Borrowing Customers</h3>
+        <table class="table table-striped" style="width: 100%; height: 200px;">
+            <thead>
+                <tr>
+                    <th>Customer ID</th>
+                    <th>Customer Name</th>
+                    <th>Total Borrowed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_customers %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] | round(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top Lenders Table -->
+    <div style="width: 45%;">
+        <h3 class="mt-4">Top Lenders</h3>
+        <table class="table table-striped" style="width: 100%; height: 200px;">
+            <thead>
+                <tr>
+                    <th>Customer ID</th>
+                    <th>Customer Name</th>
+                    <th>Total Lended</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_lenders %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] | round(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+
 <h3 class="mt-4">Search Customers</h3>
 <form method="POST" action="{{ url_for('index') }}">
     <div class="form-row">
         <div class="col">
-            <input type="text" class="form-control" name="customer_id" placeholder="Customer ID" value="{{ request.form.get('customer_id') }}">
+            <input type="text" class="form-control" name="customer_id" placeholder="Customer ID" value="{{ request.form.get('customer_id', '') }}">
         </div>
         <div class="col">
-            <input type="text" class="form-control" name="customer_name" placeholder="Customer Name" value="{{ request.form.get('customer_name') }}">
+            <input type="text" class="form-control" name="customer_name" placeholder="Customer Name" value="{{ request.form.get('customer_name', '') }}">
         </div>
         <div class="col">
-            <input type="number" class="form-control" name="credit_score" placeholder="Credit Score" value="{{ request.form.get('credit_score') }}">
+            <input type="number" class="form-control" name="credit_score" placeholder="Min Credit Score" value="{{ request.form.get('credit_score', '') }}">
         </div>
         <div class="col">
             <button type="submit" class="btn btn-primary">Search</button>
@@ -86,17 +104,15 @@
     </div>
 </form>
 
-<!-- Results Table -->
-{% if customers_summary %}
     <h3 class="mt-4">Search Results</h3>
-    <table class="table table-striped">
+    <table id="customersTable" class="table table-striped">
         <thead>
             <tr>
                 <th>Customer ID</th>
                 <th>Customer Name</th>
-                <th>Credit Score</th>
-                <th>Total Invested</th>
+                <th>Avg Credit Score</th>
                 <th>Total Borrowed</th>
+                <th>Total Invested</th>
             </tr>
         </thead>
         <tbody>
@@ -111,5 +127,17 @@
             {% endfor %}
         </tbody>
     </table>
-{% endif %}
+
+    <script>
+        $(document).ready(function() {
+            console.log("DataTables initializing...");
+            $('#customersTable').DataTable({
+                "paging": true,    // Enable pagination
+                "searching": true, // Enable search within the table
+                "ordering": true,  // Enable column sorting
+                "info": true       // Show table info (e.g., "Showing 1 to 10 of 50 entries")
+            });
+        });
+    </script>
+
 {% endblock %}
