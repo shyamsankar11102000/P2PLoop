@@ -53,6 +53,15 @@ CREATE TABLE LoanInvestments (
     FOREIGN KEY (LenderID) REFERENCES Customers(CustomerID) ON DELETE CASCADE
 );
 
+CREATE TABLE Customers_NationalID (
+    NationalID VARCHAR(20) PRIMARY KEY,
+    CustomerID INT UNIQUE REFERENCES Customers(CustomerID) ON DELETE CASCADE
+);
+INSERT INTO Customers_NationalID (NationalID, CustomerID)
+SELECT NationalID, CustomerID FROM Customers WHERE NationalID IS NOT NULL;
+
+ALTER TABLE Customers DROP COLUMN NationalID;
+
 
 
 
