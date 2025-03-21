@@ -79,3 +79,8 @@ JOIN LoanInvestments li ON c.CustomerID = li.LenderID
 GROUP BY c.CustomerID, c.FirstName, c.LastName
 ORDER BY TotalInvested DESC
 LIMIT 5;
+
+select * from loans
+SELECT LoanID, LoanAmount, InterestRate FROM Loans WHERE LoanStatus = 'Active'
+SELECT LoanID, LoanAmount, InterestRate, StartDate, EndDate, LoanStatus
+            FROM Loans WHERE LoanID = 1

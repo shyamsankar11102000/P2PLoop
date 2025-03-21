@@ -62,6 +62,10 @@ SELECT NationalID, CustomerID FROM Customers WHERE NationalID IS NOT NULL;
 
 ALTER TABLE Customers DROP COLUMN NationalID;
 
+select * from loans where loanstatus<>'Completed'
+
+update 
+
 
 
 
