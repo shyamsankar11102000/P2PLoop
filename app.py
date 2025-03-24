@@ -7,8 +7,8 @@ app.secret_key = 'your_secret_key'  # Required for flashing messages
 # Database connection details
 DATABASE_CONFIG = {
     'dbname': 'P2PLoop',
-    'user': 'postgres',
-    'password': '1313',
+    'user': 'username',
+    'password': '****',
     'host': 'localhost',
     'port': '5432'
 }
